@@ -1,15 +1,14 @@
+import os
 import random
 import string
-from tkinter import filedialog
-import soundfile as sf
-import tkinter as tk
-import customtkinter as ctk
-
-import os
 import sys
-import torch
+import tkinter as tk
 import warnings
+from tkinter import filedialog
+
 import customtkinter as ctk
+import soundfile as sf
+import torch
 
 now_dir = os.getcwd()
 sys.path.append(now_dir)
@@ -20,21 +19,24 @@ os.environ["TEMP"] = tmp
 warnings.filterwarnings("ignore")
 torch.manual_seed(114514)
 
-from vc_infer_pipeline import VC
+import subprocess
+import threading
+import traceback
+import zipfile
+from multiprocessing import cpu_count
+from time import sleep
+
+import numpy as np
 from fairseq import checkpoint_utils
 from scipy.io import wavfile
-from my_utils import load_audio
-from infer_pack.models import SynthesizerTrnMs256NSFsid, SynthesizerTrnMs256NSFsid_nono
-from infer_pack.modelsv2 import SynthesizerTrnMs768NSFsid_nono, SynthesizerTrnMs768NSFsid
-from multiprocessing import cpu_count
-import threading
-from time import sleep
-from time import sleep
-import traceback
-import numpy as np
-import subprocess
-import zipfile
+
 from config import Config
+from infer_pack.models import (SynthesizerTrnMs256NSFsid,
+                               SynthesizerTrnMs256NSFsid_nono)
+from infer_pack.modelsv2 import (SynthesizerTrnMs768NSFsid,
+                                 SynthesizerTrnMs768NSFsid_nono)
+from my_utils import load_audio
+from vc_infer_pipeline import VC
 
 config = Config()
 
@@ -341,7 +343,7 @@ def get_output_path(file_path):
 
     # Increment index until a new file path is found
     while True:
-        new_dir = f"{dir_name}\\{chosenOne}\\"
+        new_dir = f"{dir_name}/{chosenOne}/"
         new_file_name = f"{file_name}_RVC_{index}{file_ext}"
         new_file_path = os.path.join(new_dir, new_file_name)
         if not os.path.exists(new_file_path):
