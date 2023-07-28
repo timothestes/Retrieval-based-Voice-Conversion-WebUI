@@ -12,4 +12,4 @@ normal-setup:
     export PYTORCH_ENABLE_MPS_FALLBACK=1
 
 run:
-    python3 rvcgui.py
+    export PYTORCH_ENABLE_MPS_FALLBACK=1 && python3 rvcgui.py
