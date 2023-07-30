@@ -41,7 +41,6 @@ from vc_infer_pipeline import VC
 config = Config()
 
 
-
 def extract_model_from_zip(zip_path, output_dir):
     # Extract the folder name from the zip file path
     folder_name = os.path.splitext(os.path.basename(zip_path))[0]
@@ -50,9 +49,19 @@ def extract_model_from_zip(zip_path, output_dir):
     output_folder = os.path.join(output_dir, folder_name)
     os.makedirs(output_folder, exist_ok=True)
 
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
         for member in zip_ref.namelist():
-            if (member.endswith('.pth') and not (os.path.basename(member).startswith("G_") or os.path.basename(member).startswith("D_")) and zip_ref.getinfo(member).file_size < 200*(1024**2)) or (member.endswith('.index') and not (os.path.basename(member).startswith("trained"))):
+            if (
+                member.endswith(".pth")
+                and not (
+                    os.path.basename(member).startswith("G_")
+                    or os.path.basename(member).startswith("D_")
+                )
+                and zip_ref.getinfo(member).file_size < 200 * (1024**2)
+            ) or (
+                member.endswith(".index")
+                and not (os.path.basename(member).startswith("trained"))
+            ):
                 # Extract the file to the output folder
                 zip_ref.extract(member, output_folder)
 
@@ -62,26 +71,29 @@ def extract_model_from_zip(zip_path, output_dir):
                 os.rename(file_path, new_path)
 
     print(f"Model files extracted to folder: {output_folder}")
-    
-    
+
+
 def play_audio(file_path):
-    if sys.platform == 'win32':
+    if sys.platform == "win32":
         audio_file = os.path.abspath(file_path)
-        subprocess.call(['start', '', audio_file], shell=True)
-    elif sys.platform == 'darwin':
-        audio_file = 'path/to/audio/file.wav'
-        subprocess.call(['open', audio_file])
-    elif sys.platform == 'linux':
-        audio_file = 'path/to/audio/file.wav'
-        subprocess.call(['xdg-open', audio_file])
+        subprocess.call(["start", "", audio_file], shell=True)
+    elif sys.platform == "darwin":
+        audio_file = "path/to/audio/file.wav"
+        subprocess.call(["open", audio_file])
+    elif sys.platform == "linux":
+        audio_file = "path/to/audio/file.wav"
+        subprocess.call(["xdg-open", audio_file])
+
 
 def get_full_path(path):
     return os.path.abspath(path)
+
 
 hubert_model = None
 device = config.device
 print(device)
 is_half = config.is_half
+
 
 def load_hubert():
     global hubert_model
@@ -127,7 +139,7 @@ def vc_single(
             .strip(" ")
             .replace("trained", "added")
         )  # 防止小白写错，自动帮他替换掉
-     
+
         audio_opt = vc.pipeline(
             hubert_model,
             net_g,
@@ -149,7 +161,7 @@ def vc_single(
         )
 
         if output_path is not None:
-            sf.write(output_path, audio_opt, tgt_sr, format='WAV')
+            sf.write(output_path, audio_opt, tgt_sr, format="WAV")
 
         return "Success", (tgt_sr, audio_opt)
     except:
@@ -172,13 +184,11 @@ def vc_multi(
         dir_path = (
             dir_path.strip(" ").strip('"').strip("\n").strip('"').strip(" ")
         )  # 防止小白拷路径头尾带了空格和"和回车
-        opt_root = opt_root.strip(" ").strip(
-            '"').strip("\n").strip('"').strip(" ")
+        opt_root = opt_root.strip(" ").strip('"').strip("\n").strip('"').strip(" ")
         os.makedirs(opt_root, exist_ok=True)
         try:
             if dir_path != "":
-                paths = [os.path.join(dir_path, name)
-                         for name in os.listdir(dir_path)]
+                paths = [os.path.join(dir_path, name) for name in os.listdir(dir_path)]
             else:
                 paths = [path.name for path in paths]
         except:
@@ -199,8 +209,7 @@ def vc_multi(
                 try:
                     tgt_sr, audio_opt = opt
                     wavfile.write(
-                        "%s/%s" % (opt_root, os.path.basename(path)
-                                   ), tgt_sr, audio_opt
+                        "%s/%s" % (opt_root, os.path.basename(path)), tgt_sr, audio_opt
                     )
                 except:
                     info = traceback.format_exc()
@@ -244,7 +253,7 @@ def get_vc(weight_root, sid):
                 torch.cuda.empty_cache()
             cpt = None
         return {"visible": False, "__type__": "update"}
-    person = (weight_root)
+    person = weight_root
     print("loading %s" % person)
     cpt = torch.load(person, map_location="cpu")
     tgt_sr = cpt["config"][-1]
@@ -307,15 +316,23 @@ def if_done_multi(done, ps):
 def outputkey(length=5):
     # generate all possible characters
     characters = string.ascii_letters + string.digits
-    return ''.join(random.choices(characters, k=length))
+    return "".join(random.choices(characters, k=length))
+
+
 # choose `length` characters randomly from the list and join them into a string
+
 
 def refresh_model_list():
     global model_folders
-    model_folders = [f for f in os.listdir(models_dir) if os.path.isdir(os.path.join(
-    models_dir, f)) and any(f.endswith(".pth") for f in os.listdir(os.path.join(models_dir, f)))]
+    model_folders = [
+        f
+        for f in os.listdir(models_dir)
+        if os.path.isdir(os.path.join(models_dir, f))
+        and any(f.endswith(".pth") for f in os.listdir(os.path.join(models_dir, f)))
+    ]
     model_list.configure(values=model_folders)
     model_list.update()
+
 
 def browse_zip():
     global zip_file
@@ -326,12 +343,12 @@ def browse_zip():
     )
     extract_model_from_zip(zip_file, models_dir)
     refresh_model_list()
-    
+
+
 def get_output_path(file_path):
-    
     if not os.path.exists(file_path):
         # change the file extension to .wav
-        
+
         return file_path  # File path does not exist, return as is
 
     # Split file path into directory, base filename, and extension
@@ -353,7 +370,8 @@ def get_output_path(file_path):
             new_file_path = os.path.splitext(new_file_path)[0] + ".wav"
             return new_file_path  # Found new file path, return it
         index += 1
-    
+
+
 def on_button_click():
     output_audio_frame.pack_forget()
     result_state.pack_forget()
@@ -368,39 +386,65 @@ def on_button_click():
     f0_method = f0_method_entry.get()
     file_index = file_index_entry.get()
     # file_big_npy = file_big_npy_entry.get()
-    index_rate = round(index_rate_entry.get(),2)
+    index_rate = round(index_rate_entry.get(), 2)
     global output_file
     output_file = get_output_path(input_audio)
-    print("sid: ", sid, "input_audio: ", input_audio, "f0_pitch: ", f0_pitch, "f0_file: ", f0_file, "f0_method: ", f0_method,
-          "file_index: ", file_index, "file_big_npy: ", "index_rate: ", index_rate, "output_file: ", output_file)
+    print(
+        "sid: ",
+        sid,
+        "input_audio: ",
+        input_audio,
+        "f0_pitch: ",
+        f0_pitch,
+        "f0_file: ",
+        f0_file,
+        "f0_method: ",
+        f0_method,
+        "file_index: ",
+        file_index,
+        "file_big_npy: ",
+        "index_rate: ",
+        index_rate,
+        "output_file: ",
+        output_file,
+    )
     # Call the vc_single function with the user input values
     if model_loaded == True and os.path.isfile(input_audio):
         try:
             loading_frame.pack(padx=10, pady=10)
             loading_progress.start()
-            
+
             result, audio_opt = vc_single(
-                0, input_audio, f0_pitch, None, f0_method, file_index, index_rate,crepe_hop_length, output_file)
+                0,
+                input_audio,
+                f0_pitch,
+                None,
+                f0_method,
+                file_index,
+                index_rate,
+                crepe_hop_length,
+                output_file,
+            )
             # output_label.configure(text=result + "\n saved at" + output_file)
             print(os.path.join(output_file))
             if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
-              print(output_file) 
-              
-              run_button.configure(state="enabled")
-              message = result
-              result_state.configure(text_color="green")
-              last_output_file.configure(text=output_file)
-              output_audio_frame.pack(padx=10, pady=10)
-            else: 
-              message = result
-              result_state.configure(text_color="red")
+                print(output_file)
+
+                run_button.configure(state="enabled")
+                message = result
+                result_state.configure(text_color="green")
+                last_output_file.configure(text=output_file)
+                output_audio_frame.pack(padx=10, pady=10)
+            else:
+                message = result
+                result_state.configure(text_color="red")
 
         except Exception as e:
             print(e)
             message = "Voice conversion failed", e
 
-    # Update the output label with the result
-       # output_label.configure(text=result + "\n saved at" + output_file)
+        # Update the output label with the result
+        # output_label.configure(text=result + "\n saved at" + output_file)
 
         run_button.configure(state="enabled")
     else:
@@ -415,16 +459,16 @@ def on_button_click():
 
 
 def browse_file():
-    filepath = filedialog.askopenfilename (
-        filetypes=[("Audio Files", ["*.mp3","*.wav"])])
+    # filedialog.askdirectory()
+    filepath = filedialog.askopenfilename(
+        filetypes=[("Audio Files", ["*.mp3", "*.wav"])]
+    )
     filepath = os.path.normpath(filepath)  # Normalize file path
     input_audio_entry.delete(0, tk.END)
     input_audio_entry.insert(0, filepath)
 
 
-
 def start_processing():
-
     t = threading.Thread(target=on_button_click)
     t.start()
 
@@ -447,20 +491,29 @@ root.resizable(False, True)
 
 model_loaded = False
 
+
 def selected_model(choice):
     global chosenOne
     chosenOne = choice
     file_index_entry.delete(0, ctk.END)
     model_dir = os.path.join(models_dir, choice)
-    pth_files = [f for f in os.listdir(model_dir) if os.path.isfile(os.path.join(model_dir, f)) 
-                 and f.endswith(".pth") and not (f.startswith("G_") or f.startswith("D_"))
-                 and os.path.getsize(os.path.join(model_dir, f)) < 200*(1024**2)]
-    
+    pth_files = [
+        f
+        for f in os.listdir(model_dir)
+        if os.path.isfile(os.path.join(model_dir, f))
+        and f.endswith(".pth")
+        and not (f.startswith("G_") or f.startswith("D_"))
+        and os.path.getsize(os.path.join(model_dir, f)) < 200 * (1024**2)
+    ]
+
     if pth_files:
         global pth_file_path
         pth_file_path = os.path.join(model_dir, pth_files[0])
-        npy_files = [f for f in os.listdir(model_dir) if os.path.isfile(os.path.join(model_dir, f)) 
-                     and f.endswith(".index")]
+        npy_files = [
+            f
+            for f in os.listdir(model_dir)
+            if os.path.isfile(os.path.join(model_dir, f)) and f.endswith(".index")
+        ]
         if npy_files:
             npy_files_dir = [os.path.join(model_dir, f) for f in npy_files]
             if len(npy_files_dir) == 1:
@@ -480,45 +533,61 @@ def selected_model(choice):
 
 
 def index_slider_event(value):
-    index_rate_label.configure(
-        text='Feature retrieval rate: %s' % round(value, 2))
-   # print(value)
+    index_rate_label.configure(text="Feature retrieval rate: %s" % round(value, 2))
+
+
+# print(value)
 
 
 def pitch_slider_event(value):
-    f0_pitch_label.configure(text='Pitch: %s' % round(value))
-  #  print(value)
-  
+    f0_pitch_label.configure(text="Pitch: %s" % round(value))
+
+
+#  print(value)
+
+
 def crepe_hop_length_slider_event(value):
-    crepe_hop_length_label.configure(text='crepe hop: %s' % round((value) * 64))
-  #  print(value)
+    crepe_hop_length_label.configure(text="crepe hop: %s" % round((value) * 64))
+
+
+#  print(value)
 
 
 # hide crepe hop length slider if crepe is not selected
 def crepe_hop_length_slider_visibility(value):
     if value == "crepe" or value == "crepe-tiny":
-        crepe_hop_length_label.grid(row=2, column=0, padx=10, pady=5, )
-        crepe_hop_length_entry.grid(row=2, column=1, padx=10, pady=5, )
+        crepe_hop_length_label.grid(
+            row=2,
+            column=0,
+            padx=10,
+            pady=5,
+        )
+        crepe_hop_length_entry.grid(
+            row=2,
+            column=1,
+            padx=10,
+            pady=5,
+        )
     else:
         crepe_hop_length_label.grid_remove()
         crepe_hop_length_entry.grid_remove()
+
 
 def update_config(selected):
     global device, is_half  # declare newconfig as a global variable
     if selected == "GPU":
         device = "cuda:0"
-       # is_half = True
+    # is_half = True
     else:
         if torch.backends.mps.is_available():
-         device = "mps"
-       #  is_half = False
-        else: 
+            device = "mps"
+        #  is_half = False
+        else:
             device = "cpu"
             is_half = False
 
     config.device = device
     config.is_half = is_half
-    
 
     if "pth_file_path" in globals():
         load_hubert()
@@ -526,18 +595,26 @@ def update_config(selected):
 
 
 models_dir = "./models"
-model_folders = [f for f in os.listdir(models_dir) if os.path.isdir(os.path.join(
-    models_dir, f)) and any(f.endswith(".pth") for f in os.listdir(os.path.join(models_dir, f)))]
+model_folders = [
+    f
+    for f in os.listdir(models_dir)
+    if os.path.isdir(os.path.join(models_dir, f))
+    and any(f.endswith(".pth") for f in os.listdir(os.path.join(models_dir, f)))
+]
 
 
 master_frame = ctk.CTkFrame(master=root, height=500)
 master_frame.pack(padx=5, pady=5)
 
 
-left_frame = ctk.CTkFrame(master=master_frame, )
-left_frame.grid(row=0, column=0, padx=10,  pady=10, sticky="nsew")
+left_frame = ctk.CTkFrame(
+    master=master_frame,
+)
+left_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
 
-right_frame = ctk.CTkFrame(master=master_frame, )
+right_frame = ctk.CTkFrame(
+    master=master_frame,
+)
 right_frame.grid(row=0, column=1, pady=10, padx=10, sticky="nsew")
 
 
@@ -554,9 +631,7 @@ pitch_frame = ctk.CTkFrame(left_frame)
 pitch_frame.grid(row=3, column=0, padx=10, pady=5, sticky="nsew")
 
 
-
 # Get the list of .pth files in the models directory
-
 
 
 sid_label = ctk.CTkLabel(select_model_frame, text="Speaker ID:")
@@ -566,38 +641,48 @@ sid_entry.configure(state="disabled")
 
 # intiilizing model select widget
 select_model = ctk.StringVar(value="Select a model")
-model_list = ctk.CTkOptionMenu(select_model_frame, values=model_folders,
-                               command=selected_model,
-                               variable=select_model
-                               )
+model_list = ctk.CTkOptionMenu(
+    select_model_frame,
+    values=model_folders,
+    command=selected_model,
+    variable=select_model,
+)
 
 # intiilizing audio file input widget
 input_audio_label = ctk.CTkLabel(inputpath_frame, text="Input audio file:")
-browse_button = ctk.CTkButton(
-    inputpath_frame, text="Browse", command=browse_file)
+browse_button = ctk.CTkButton(inputpath_frame, text="Browse", command=browse_file)
 input_audio_entry = ctk.CTkEntry(inputpath_frame)
 
 #  intiilizing pitch widget
 f0_pitch_label = ctk.CTkLabel(pitch_frame, text="Pitch: 0")
 f0_pitch_entry = ctk.CTkSlider(
-    pitch_frame, from_=-20, to=20, number_of_steps=100, command=pitch_slider_event, )
+    pitch_frame,
+    from_=-20,
+    to=20,
+    number_of_steps=100,
+    command=pitch_slider_event,
+)
 f0_pitch_entry.set(0)
 
 #  intiilizing crepe hop length widget
 crepe_hop_length_label = ctk.CTkLabel(pitch_frame, text="crepe hop: 128")
 crepe_hop_length_entry = ctk.CTkSlider(
-    pitch_frame, from_=1, to=8, number_of_steps=7, command=crepe_hop_length_slider_event)
+    pitch_frame, from_=1, to=8, number_of_steps=7, command=crepe_hop_length_slider_event
+)
 crepe_hop_length_entry.set(2)
 
 # intiilizing f0 file widget
-#f0_file_label = ctk.CTkLabel(right_frame, text="F0 file (Optional/Not Tested)")
-#f0_file_entry = ctk.CTkEntry(right_frame, width=250)
+# f0_file_label = ctk.CTkLabel(right_frame, text="F0 file (Optional/Not Tested)")
+# f0_file_entry = ctk.CTkEntry(right_frame, width=250)
 
 # intiilizing f0 method widget
-f0_method_label = ctk.CTkLabel(
-    pitch_frame, text="F0 method")
+f0_method_label = ctk.CTkLabel(pitch_frame, text="F0 method")
 f0_method_entry = ctk.CTkSegmentedButton(
-    pitch_frame, height=40, values=["dio", "pm","harvest", "crepe", "crepe-tiny" ], command=crepe_hop_length_slider_visibility)
+    pitch_frame,
+    height=40,
+    values=["dio", "pm", "harvest", "crepe", "crepe-tiny"],
+    command=crepe_hop_length_slider_visibility,
+)
 f0_method_entry.set("dio")
 
 # intiilizing index file widget
@@ -607,89 +692,110 @@ file_index_entry = ctk.CTkEntry(right_frame, width=250)
 # intiilizing big npy file widget
 
 
-
 # intiilizing index rate widget
 index_rate_entry = ctk.CTkSlider(
-    right_frame, from_=0, to=1, number_of_steps=20, command=index_slider_event, )
+    right_frame,
+    from_=0,
+    to=1,
+    number_of_steps=20,
+    command=index_slider_event,
+)
 index_rate_entry.set(0.4)
-index_rate_label = ctk.CTkLabel(
-    right_frame, text="Feature retrieval rate: 0.4" )
+index_rate_label = ctk.CTkLabel(right_frame, text="Feature retrieval rate: 0.4")
 
 # intiilizing run button widget
 run_button = ctk.CTkButton(
-    left_frame, fg_color="green", hover_color="darkgreen", text="Convert", command=start_processing)
+    left_frame,
+    fg_color="green",
+    hover_color="darkgreen",
+    text="Convert",
+    command=start_processing,
+)
 
 # intiilizing output label widget
 output_label = ctk.CTkLabel(right_frame, text="")
 
 # intiilizing Notes label widget
-notes_label = ctk.CTkLabel(left_frame, justify="left", text_color="#8A8A8A", text="Tips: \n 1. harvest and crepe are the highest quality, but also the slowest methods. \n 2. dio and pm are the lightest and fastest methods, but also the lowest quality.")
+notes_label = ctk.CTkLabel(
+    left_frame,
+    justify="left",
+    text_color="#8A8A8A",
+    text="Tips: \n 1. harvest and crepe are the highest quality, but also the slowest methods. \n 2. dio and pm are the lightest and fastest methods, but also the lowest quality.",
+)
 
 # intiilizing loading progress bar widget
 
-loading_frame = ctk.CTkFrame(master=root, width=200) 
+loading_frame = ctk.CTkFrame(master=root, width=200)
 
-laoding_label = ctk.CTkLabel(loading_frame, text="Converting..., If the window is not responding, Please wait.")
+laoding_label = ctk.CTkLabel(
+    loading_frame, text="Converting..., If the window is not responding, Please wait."
+)
 laoding_label.pack(padx=10, pady=10)
 loading_progress = ctk.CTkProgressBar(master=loading_frame, width=200)
 loading_progress.configure(mode="indeterminate")
 loading_progress.pack(padx=10, pady=10)
 
 # intiilizing result state label widget
-result_state = ctk.CTkLabel(
-    root, text="", height=50, width=100, corner_radius=10)
+result_state = ctk.CTkLabel(root, text="", height=50, width=100, corner_radius=10)
 
 # intiilizing change device widget
-change_device_label = ctk.CTkLabel( right_frame, text="Processing mode")
+change_device_label = ctk.CTkLabel(right_frame, text="Processing mode")
 change_device = ctk.CTkSegmentedButton(
-    right_frame, command=lambda value: update_config(value))
-change_device.configure(
-    values=["GPU", "CPU"])
+    right_frame, command=lambda value: update_config(value)
+)
+change_device.configure(values=["GPU", "CPU"])
 
 if "cpu" in device.lower() or device.lower() == "cpu":
     change_device.set("CPU")
     change_device.configure(state="disabled")
-   
+
 else:
     change_device.set("GPU")
 
 # intiilizing last output label & open output button widget
 last_output_label = ctk.CTkLabel(output_audio_frame, text="Output path: ")
 last_output_file = ctk.CTkLabel(output_audio_frame, text="", text_color="green")
-open_output_button = ctk.CTkButton(output_audio_frame, text="Open", command=lambda: play_audio(output_file))
+open_output_button = ctk.CTkButton(
+    output_audio_frame, text="Open", command=lambda: play_audio(output_file)
+)
 
 # intiilizing import models button widget
-import_moodels_button = ctk.CTkButton(right_frame, fg_color="darkred", hover_color="black", corner_radius=20, text="Import model from .zip", command=browse_zip)
-
+import_moodels_button = ctk.CTkButton(
+    right_frame,
+    fg_color="darkred",
+    hover_color="black",
+    corner_radius=20,
+    text="Import model from .zip",
+    command=browse_zip,
+)
 
 
 # button = ctk.CTkButton(root, text="Open Window", command=open_window)
 # button.pack()
 
 
-
 # Packing widgets into window
 notes_label.grid(row=5, column=0, padx=10, pady=10)
 change_device_label.grid(row=1, column=0, columnspan=2, padx=10, pady=5)
 change_device.grid(row=2, column=0, columnspan=2, padx=10, pady=5)
-last_output_label.grid( pady=10, row=0, column=0)
-last_output_file.grid( pady=10, row=0, column=1)
+last_output_label.grid(pady=10, row=0, column=0)
+last_output_file.grid(pady=10, row=0, column=1)
 open_output_button.grid(pady=10, row=1, column=0, columnspan=2)
 import_moodels_button.grid(padx=10, pady=10, row=0, column=0)
 model_list.grid(padx=10, pady=10, row=0, column=2)
 sid_label.grid(padx=10, pady=10, row=0, column=0)
-sid_entry.grid(padx=0, pady=10, row=0, column= 1)
+sid_entry.grid(padx=0, pady=10, row=0, column=1)
 browse_button.grid(padx=10, pady=10, row=0, column=2)
 input_audio_label.grid(padx=10, pady=10, row=0, column=0)
 input_audio_entry.grid(padx=10, pady=10, row=0, column=1)
 f0_method_label.grid(padx=10, pady=10, row=0, column=0)
 f0_method_entry.grid(padx=10, pady=10, row=0, column=1)
-#crepe_hop_length_label.grid(padx=10, pady=10, row=1, column=0)
-#crepe_hop_length_entry.grid(padx=10, pady=10, row=1, column=1)
+# crepe_hop_length_label.grid(padx=10, pady=10, row=1, column=0)
+# crepe_hop_length_entry.grid(padx=10, pady=10, row=1, column=1)
 f0_pitch_label.grid(padx=10, pady=10, row=3, column=0)
 f0_pitch_entry.grid(padx=10, pady=10, row=3, column=1)
-#0_file_label.grid(padx=10, pady=10)
-#f0_file_entry.grid(padx=10, pady=10)
+# 0_file_label.grid(padx=10, pady=10)
+# f0_file_entry.grid(padx=10, pady=10)
 file_index_label.grid(padx=10, pady=10)
 file_index_entry.grid(padx=10, pady=10)
 
