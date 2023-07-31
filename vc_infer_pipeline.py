@@ -1,13 +1,16 @@
 import numpy as np, parselmouth, torch, pdb
 from time import time as ttime
 import torch.nn.functional as F
-import torchcrepe # Fork feature. Use the crepe f0 algorithm. New dependency (pip install torchcrepe)
+import torchcrepe  # Fork feature. Use the crepe f0 algorithm. New dependency (pip install torchcrepe)
 import scipy.signal as signal
 import pyworld, os, traceback, faiss
 from scipy import signal
-from torch import Tensor # Fork Feature. Used for pitch prediction for the torchcrepe f0 inference computation
+from torch import (
+    Tensor,
+)  # Fork Feature. Used for pitch prediction for the torchcrepe f0 inference computation
 
 bh, ah = signal.butter(N=5, Wn=48, btype="high", fs=16000)
+
 
 class VC(object):
     def __init__(self, tgt_sr, config):
@@ -28,16 +31,18 @@ class VC(object):
         self.t_max = self.sr * self.x_max  # 免查询时长阈值
         self.device = config.device
 
-    #region f0 Overhaul Region
+    # region f0 Overhaul Region
     # Fork Feature: Get the best torch device to use for f0 algorithms that require a torch device. Will return the type (torch.device)
     def get_optimal_torch_device(self, index: int = 0) -> torch.device:
         # Get cuda device
         if torch.cuda.is_available():
-            return torch.device(f"cuda:{index % torch.cuda.device_count()}") # Very fast
+            return torch.device(
+                f"cuda:{index % torch.cuda.device_count()}"
+            )  # Very fast
         elif torch.backends.mps.is_available():
             return torch.device("mps")
         # Insert an else here to grab "xla" devices if available. TO DO later. Requires the torch_xla.core.xla_model library
-        # Else wise return the "cpu" as a torch device, 
+        # Else wise return the "cpu" as a torch device,
         return torch.device("cpu")
 
     # Get the f0 via parselmouth computation
@@ -54,9 +59,7 @@ class VC(object):
         )
         pad_size = (p_len - len(f0) + 1) // 2
         if pad_size > 0 or p_len - len(f0) - pad_size > 0:
-            f0 = np.pad(
-                f0, [[pad_size, p_len - len(f0) - pad_size]], mode="constant"
-            )
+            f0 = np.pad(f0, [[pad_size, p_len - len(f0) - pad_size]], mode="constant")
         return f0
 
     # Get the f0 via the pyworld computation. Fork Feature +dio along with harvest
@@ -78,20 +81,22 @@ class VC(object):
                 frame_period=10,
             )
         f0 = pyworld.stonemask(x.astype(np.double), f0, t, self.sr)
-        f0 = signal.medfilt(f0, 3) 
+        f0 = signal.medfilt(f0, 3)
         return f0
-    
+
     # Fork Feature: Get the f0 via the crepe algorithm from torchcrepe
     def get_f0_crepe_computation(
-            self, 
-            x, 
-            f0_min,
-            f0_max,
-            p_len,
-            hop_length=128, # 512 before. Hop length changes the speed that the voice jumps to a different dramatic pitch. Lower hop lengths means more pitch accuracy but longer inference time.
-            model="full", # Either use crepe-tiny "tiny" or crepe "full". Default is full
+        self,
+        x,
+        f0_min,
+        f0_max,
+        p_len,
+        hop_length=128,  # 512 before. Hop length changes the speed that the voice jumps to a different dramatic pitch. Lower hop lengths means more pitch accuracy but longer inference time.
+        model="full",  # Either use crepe-tiny "tiny" or crepe "full". Default is full
     ):
-        x = x.astype(np.float32) # fixes the F.conv2D exception. We needed to convert double to float.
+        x = x.astype(
+            np.float32
+        )  # fixes the F.conv2D exception. We needed to convert double to float.
         x /= np.quantile(np.abs(x), 0.999)
         torch_device = self.get_optimal_torch_device()
         audio = torch.from_numpy(x).to(torch_device, copy=True)
@@ -109,7 +114,7 @@ class VC(object):
             model,
             batch_size=hop_length * 2,
             device=torch_device,
-            pad=True
+            pad=True,
         )
         p_len = p_len or x.shape[0] // hop_length
         # Resize the pitch for final f0
@@ -118,12 +123,12 @@ class VC(object):
         target = np.interp(
             np.arange(0, len(source) * p_len, len(source)) / p_len,
             np.arange(0, len(source)),
-            source
+            source,
         )
         f0 = np.nan_to_num(target)
-        return f0 # Resized f0
-    
-    #endregion
+        return f0  # Resized f0
+
+    # endregion
 
     def get_f0(self, x, p_len, f0_up_key, f0_method, crepe_hop_length, inp_f0=None):
         time_step = self.window / self.sr * 1000
@@ -135,12 +140,18 @@ class VC(object):
             f0 = self.get_f0_pm_computation(x, time_step, f0_min, f0_max, p_len)
         elif f0_method == "harvest":
             f0 = self.get_f0_pyworld_computation(x, f0_min, f0_max, "harvest")
-        elif f0_method == "dio": # Fork Feature
+        elif f0_method == "dio":  # Fork Feature
             f0 = self.get_f0_pyworld_computation(x, f0_min, f0_max, "dio")
-        elif f0_method == "crepe": # Fork Feature: Adding a new f0 algorithm called crepe
-            f0 = self.get_f0_crepe_computation(x, f0_min, f0_max, p_len, crepe_hop_length)
-        elif f0_method == "crepe-tiny": # For Feature add crepe-tiny model
-            f0 = self.get_f0_crepe_computation(x, f0_min, f0_max, p_len, crepe_hop_length, "tiny")
+        elif (
+            f0_method == "crepe"
+        ):  # Fork Feature: Adding a new f0 algorithm called crepe
+            f0 = self.get_f0_crepe_computation(
+                x, f0_min, f0_max, p_len, crepe_hop_length
+            )
+        elif f0_method == "crepe-tiny":  # For Feature add crepe-tiny model
+            f0 = self.get_f0_crepe_computation(
+                x, f0_min, f0_max, p_len, crepe_hop_length, "tiny"
+            )
 
         print("Using the following f0 method: " + f0_method)
         f0 *= pow(2, f0_up_key / 12)
@@ -326,11 +337,17 @@ class VC(object):
         sid = torch.tensor(sid, device=self.device).unsqueeze(0).long()
         pitch, pitchf = None, None
         if if_f0 == 1:
-            pitch, pitchf = self.get_f0(audio_pad, p_len, f0_up_key, f0_method, crepe_hop_length, inp_f0)
+            pitch, pitchf = self.get_f0(
+                audio_pad, p_len, f0_up_key, f0_method, crepe_hop_length, inp_f0
+            )
             pitch = pitch[:p_len]
             pitchf = pitchf[:p_len]
             pitch = torch.tensor(pitch, device=self.device).unsqueeze(0).long()
-            pitchf = torch.tensor(pitchf, device=self.device, dtype=torch.float32).unsqueeze(0).float()
+            pitchf = (
+                torch.tensor(pitchf, device=self.device, dtype=torch.float32)
+                .unsqueeze(0)
+                .float()
+            )
         t2 = ttime()
         times[1] += t2 - t1
         for t in opt_ts:
@@ -364,7 +381,7 @@ class VC(object):
                         index,
                         big_npy,
                         index_rate,
-                         version,
+                        version,
                     )[self.t_pad_tgt : -self.t_pad_tgt]
                 )
             s = t
@@ -381,7 +398,7 @@ class VC(object):
                     index,
                     big_npy,
                     index_rate,
-                     version,
+                    version,
                 )[self.t_pad_tgt : -self.t_pad_tgt]
             )
         else:
@@ -397,7 +414,7 @@ class VC(object):
                     index,
                     big_npy,
                     index_rate,
-                     version,
+                    version,
                 )[self.t_pad_tgt : -self.t_pad_tgt]
             )
         audio_opt = np.concatenate(audio_opt)

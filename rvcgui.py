@@ -31,10 +31,11 @@ from fairseq import checkpoint_utils
 from scipy.io import wavfile
 
 from config import Config
-from infer_pack.models import (SynthesizerTrnMs256NSFsid,
-                               SynthesizerTrnMs256NSFsid_nono)
-from infer_pack.modelsv2 import (SynthesizerTrnMs768NSFsid,
-                                 SynthesizerTrnMs768NSFsid_nono)
+from infer_pack.models import SynthesizerTrnMs256NSFsid, SynthesizerTrnMs256NSFsid_nono
+from infer_pack.modelsv2 import (
+    SynthesizerTrnMs768NSFsid,
+    SynthesizerTrnMs768NSFsid_nono,
+)
 from my_utils import load_audio
 from vc_infer_pipeline import VC
 
