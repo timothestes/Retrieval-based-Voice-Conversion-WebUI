@@ -31,13 +31,12 @@ from fairseq import checkpoint_utils
 from scipy.io import wavfile
 
 from config import Config
-from infer_pack.models import SynthesizerTrnMs256NSFsid, SynthesizerTrnMs256NSFsid_nono
-from infer_pack.modelsv2 import (
-    SynthesizerTrnMs768NSFsid,
-    SynthesizerTrnMs768NSFsid_nono,
-)
+from infer_pack.models import (SynthesizerTrnMs256NSFsid,
+                               SynthesizerTrnMs256NSFsid_nono)
+from infer_pack.modelsv2 import (SynthesizerTrnMs768NSFsid,
+                                 SynthesizerTrnMs768NSFsid_nono)
 from my_utils import load_audio
-from vc_infer_pipeline import VC
+from src.vc_infer_pipeline import VC
 
 config = Config()
 
@@ -60,8 +59,7 @@ def extract_model_from_zip(zip_path, output_dir):
                 )
                 and zip_ref.getinfo(member).file_size < 200 * (1024**2)
             ) or (
-                member.endswith(".index")
-                and not (os.path.basename(member).startswith("trained"))
+                member.endswith(".index") and not (os.path.basename(member).startswith("trained"))
             ):
                 # Extract the file to the output folder
                 zip_ref.extract(member, output_folder)
@@ -157,9 +155,7 @@ def vc_single(
             crepe_hop_length,
             None,
         )
-        print(
-            "npy: ", times[0], "s, f0: ", times[1], "s, infer: ", times[2], "s", sep=""
-        )
+        print("npy: ", times[0], "s, f0: ", times[1], "s, infer: ", times[2], "s", sep="")
 
         if output_path is not None:
             sf.write(output_path, audio_opt, tgt_sr, format="WAV")
@@ -209,9 +205,7 @@ def vc_multi(
             if info == "Success":
                 try:
                     tgt_sr, audio_opt = opt
-                    wavfile.write(
-                        "%s/%s" % (opt_root, os.path.basename(path)), tgt_sr, audio_opt
-                    )
+                    wavfile.write("%s/%s" % (opt_root, os.path.basename(path)), tgt_sr, audio_opt)
                 except:
                     info = traceback.format_exc()
             infos.append("%s->%s" % (os.path.basename(path), info))
@@ -237,16 +231,12 @@ def get_vc(weight_root, sid):
             version = cpt.get("version", "v1")
             if version == "v1":
                 if if_f0 == 1:
-                    net_g = SynthesizerTrnMs256NSFsid(
-                        *cpt["config"], is_half=config.is_half
-                    )
+                    net_g = SynthesizerTrnMs256NSFsid(*cpt["config"], is_half=config.is_half)
                 else:
                     net_g = SynthesizerTrnMs256NSFsid_nono(*cpt["config"])
             elif version == "v2":
                 if if_f0 == 1:
-                    net_g = SynthesizerTrnMs768NSFsid(
-                        *cpt["config"], is_half=config.is_half
-                    )
+                    net_g = SynthesizerTrnMs768NSFsid(*cpt["config"], is_half=config.is_half)
                 else:
                     net_g = SynthesizerTrnMs768NSFsid_nono(*cpt["config"])
             del net_g, cpt
@@ -461,9 +451,7 @@ def on_button_click():
 
 def browse_file():
     # filedialog.askdirectory()
-    filepath = filedialog.askopenfilename(
-        filetypes=[("Audio Files", ["*.mp3", "*.wav"])]
-    )
+    filepath = filedialog.askopenfilename(filetypes=[("Audio Files", ["*.mp3", "*.wav"])])
     filepath = os.path.normpath(filepath)  # Normalize file path
     input_audio_entry.delete(0, tk.END)
     input_audio_entry.insert(0, filepath)
@@ -640,7 +628,7 @@ sid_entry = ctk.CTkEntry(select_model_frame)
 sid_entry.insert(0, "0")
 sid_entry.configure(state="disabled")
 
-# intiilizing model select widget
+# initializing model select widget
 select_model = ctk.StringVar(value="Select a model")
 model_list = ctk.CTkOptionMenu(
     select_model_frame,
@@ -649,12 +637,12 @@ model_list = ctk.CTkOptionMenu(
     variable=select_model,
 )
 
-# intiilizing audio file input widget
+# initializing audio file input widget
 input_audio_label = ctk.CTkLabel(inputpath_frame, text="Input audio file:")
 browse_button = ctk.CTkButton(inputpath_frame, text="Browse", command=browse_file)
 input_audio_entry = ctk.CTkEntry(inputpath_frame)
 
-#  intiilizing pitch widget
+#  initializing pitch widget
 f0_pitch_label = ctk.CTkLabel(pitch_frame, text="Pitch: 0")
 f0_pitch_entry = ctk.CTkSlider(
     pitch_frame,
@@ -665,18 +653,18 @@ f0_pitch_entry = ctk.CTkSlider(
 )
 f0_pitch_entry.set(0)
 
-#  intiilizing crepe hop length widget
+#  initializing crepe hop length widget
 crepe_hop_length_label = ctk.CTkLabel(pitch_frame, text="crepe hop: 128")
 crepe_hop_length_entry = ctk.CTkSlider(
     pitch_frame, from_=1, to=8, number_of_steps=7, command=crepe_hop_length_slider_event
 )
 crepe_hop_length_entry.set(2)
 
-# intiilizing f0 file widget
+# initializing f0 file widget
 # f0_file_label = ctk.CTkLabel(right_frame, text="F0 file (Optional/Not Tested)")
 # f0_file_entry = ctk.CTkEntry(right_frame, width=250)
 
-# intiilizing f0 method widget
+# initializing f0 method widget
 f0_method_label = ctk.CTkLabel(pitch_frame, text="F0 method")
 f0_method_entry = ctk.CTkSegmentedButton(
     pitch_frame,
@@ -686,14 +674,14 @@ f0_method_entry = ctk.CTkSegmentedButton(
 )
 f0_method_entry.set("dio")
 
-# intiilizing index file widget
+# initializing index file widget
 file_index_label = ctk.CTkLabel(right_frame, text=".index File (Recommended)")
 file_index_entry = ctk.CTkEntry(right_frame, width=250)
 
-# intiilizing big npy file widget
+# initializing big npy file widget
 
 
-# intiilizing index rate widget
+# initializing index rate widget
 index_rate_entry = ctk.CTkSlider(
     right_frame,
     from_=0,
@@ -704,7 +692,7 @@ index_rate_entry = ctk.CTkSlider(
 index_rate_entry.set(0.4)
 index_rate_label = ctk.CTkLabel(right_frame, text="Feature retrieval rate: 0.4")
 
-# intiilizing run button widget
+# initializing run button widget
 run_button = ctk.CTkButton(
     left_frame,
     fg_color="green",
@@ -713,10 +701,10 @@ run_button = ctk.CTkButton(
     command=start_processing,
 )
 
-# intiilizing output label widget
+# initializing output label widget
 output_label = ctk.CTkLabel(right_frame, text="")
 
-# intiilizing Notes label widget
+# initializing Notes label widget
 notes_label = ctk.CTkLabel(
     left_frame,
     justify="left",
@@ -724,7 +712,7 @@ notes_label = ctk.CTkLabel(
     text="Tips: \n 1. harvest and crepe are the highest quality, but also the slowest methods. \n 2. dio and pm are the lightest and fastest methods, but also the lowest quality.",
 )
 
-# intiilizing loading progress bar widget
+# initializing loading progress bar widget
 
 loading_frame = ctk.CTkFrame(master=root, width=200)
 
@@ -736,14 +724,12 @@ loading_progress = ctk.CTkProgressBar(master=loading_frame, width=200)
 loading_progress.configure(mode="indeterminate")
 loading_progress.pack(padx=10, pady=10)
 
-# intiilizing result state label widget
+# initializing result state label widget
 result_state = ctk.CTkLabel(root, text="", height=50, width=100, corner_radius=10)
 
-# intiilizing change device widget
+# initializing change device widget
 change_device_label = ctk.CTkLabel(right_frame, text="Processing mode")
-change_device = ctk.CTkSegmentedButton(
-    right_frame, command=lambda value: update_config(value)
-)
+change_device = ctk.CTkSegmentedButton(right_frame, command=lambda value: update_config(value))
 change_device.configure(values=["GPU", "CPU"])
 
 if "cpu" in device.lower() or device.lower() == "cpu":
@@ -753,14 +739,14 @@ if "cpu" in device.lower() or device.lower() == "cpu":
 else:
     change_device.set("GPU")
 
-# intiilizing last output label & open output button widget
+# initializing last output label & open output button widget
 last_output_label = ctk.CTkLabel(output_audio_frame, text="Output path: ")
 last_output_file = ctk.CTkLabel(output_audio_frame, text="", text_color="green")
 open_output_button = ctk.CTkButton(
     output_audio_frame, text="Open", command=lambda: play_audio(output_file)
 )
 
-# intiilizing import models button widget
+# initializing import models button widget
 import_moodels_button = ctk.CTkButton(
     right_frame,
     fg_color="darkred",
