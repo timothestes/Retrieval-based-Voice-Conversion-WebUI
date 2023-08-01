@@ -28,15 +28,13 @@ from time import sleep
 
 import numpy as np
 from fairseq import checkpoint_utils
+from infer_pack.models import SynthesizerTrnMs256NSFsid, SynthesizerTrnMs256NSFsid_nono
+from infer_pack.modelsv2 import SynthesizerTrnMs768NSFsid, SynthesizerTrnMs768NSFsid_nono
 from scipy.io import wavfile
 
 from config import Config
-from infer_pack.models import (SynthesizerTrnMs256NSFsid,
-                               SynthesizerTrnMs256NSFsid_nono)
-from infer_pack.modelsv2 import (SynthesizerTrnMs768NSFsid,
-                                 SynthesizerTrnMs768NSFsid_nono)
 from my_utils import load_audio
-from src.vc_infer_pipeline import VC
+from vc_infer_pipeline import VC
 
 config = Config()
 
@@ -336,31 +334,41 @@ def browse_zip():
     refresh_model_list()
 
 
-def get_output_path(file_path):
-    if not os.path.exists(file_path):
-        # change the file extension to .wav
-
-        return file_path  # File path does not exist, return as is
-
-    # Split file path into directory, base filename, and extension
-    dir_name, file_name = os.path.split(file_path)
-    file_name, file_ext = os.path.splitext(file_name)
-
-    # Initialize index to 1
-    index = 1
-
-    # Increment index until a new file path is found
-    while True:
-        new_dir = f"{dir_name}/{chosenOne}/"
-        new_file_name = f"{file_name}_RVC_{index}{file_ext}"
-        new_file_path = os.path.join(new_dir, new_file_name)
-        if not os.path.exists(new_file_path):
+def get_output_paths(file_paths: list) -> list:
+    new_file_paths = []
+    print(f"file_paths: {file_paths}")
+    for file_path in file_paths:
+        print(f"file_path: {file_path}")
+        if not os.path.exists(file_path):
             # change the file extension to .wav
-            if not os.path.exists(new_dir):
-                os.makedirs(new_dir)
-            new_file_path = os.path.splitext(new_file_path)[0] + ".wav"
-            return new_file_path  # Found new file path, return it
-        index += 1
+
+            new_file_paths.append(file_path)  # File path does not exist, return as is
+            continue
+
+        # Split file path into directory, base filename, and extension
+        dir_name, file_name = os.path.split(file_path)
+        file_name, file_ext = os.path.splitext(file_name)
+
+        # Initialize index to 1
+        index = 1
+
+        # Increment index until a new file path is found
+        while True:
+            new_dir = f"{dir_name}/{chosenOne}/"
+            print(f"new_dir: {new_dir}")
+            new_file_name = f"{file_name}_RVC_{index}{file_ext}"
+            new_file_path = os.path.join(new_dir, new_file_name)
+            print(f"new_file_path: {new_file_path}")
+            if not os.path.exists(new_file_path):
+                # change the file extension to .wav
+                if not os.path.exists(new_dir):
+                    os.makedirs(new_dir)
+                new_file_path = os.path.splitext(new_file_path)[0] + ".wav"
+                new_file_paths.append(new_file_path)  # Found new file path, return it
+                break
+            index += 1
+
+    return new_file_paths
 
 
 def on_button_click():
@@ -370,7 +378,9 @@ def on_button_click():
 
     # Get values from user input widgets
     sid = sid_entry.get()
-    input_audio = input_audio_entry.get()
+    input_audios = input_audio_entry.get()
+    input_audios = input_audios.split("___comma___")
+    print(f"input_audios: {input_audios}")
     f0_pitch = round(f0_pitch_entry.get())
     crepe_hop_length = round((crepe_hop_length_entry.get()) * 64)
     f0_file = None
@@ -378,13 +388,13 @@ def on_button_click():
     file_index = file_index_entry.get()
     # file_big_npy = file_big_npy_entry.get()
     index_rate = round(index_rate_entry.get(), 2)
-    global output_file
-    output_file = get_output_path(input_audio)
+    global output_files
+    output_files = get_output_paths(input_audios)
     print(
         "sid: ",
         sid,
-        "input_audio: ",
-        input_audio,
+        "input_audios: ",
+        input_audios,
         "f0_pitch: ",
         f0_pitch,
         "f0_file: ",
@@ -396,65 +406,65 @@ def on_button_click():
         "file_big_npy: ",
         "index_rate: ",
         index_rate,
-        "output_file: ",
-        output_file,
+        "output_files: ",
+        output_files,
     )
     # Call the vc_single function with the user input values
-    if model_loaded == True and os.path.isfile(input_audio):
-        try:
-            loading_frame.pack(padx=10, pady=10)
-            loading_progress.start()
+    for i, input_audio in enumerate(input_audios):
+        print(f"input_audio: {input_audio}, i {i}")
+        if model_loaded is True and os.path.isfile(input_audio):
+            try:
+                loading_frame.pack(padx=10, pady=10)
+                loading_progress.start()
+                print("calling vc_single")
+                result, audio_opt = vc_single(
+                    0,
+                    input_audio,
+                    f0_pitch,
+                    None,
+                    f0_method,
+                    file_index,
+                    index_rate,
+                    crepe_hop_length,
+                    output_files[i],
+                )
+                # output_label.configure(text=result + "\n saved at" + output_file)
+                print(os.path.join(output_files[i]))
+                if os.path.exists(output_files[i]) and os.path.getsize(output_files[i]) > 0:
+                    print(f"processed {output_files[i]}")
+                else:
+                    message = result
+                    result_state.configure(text_color="red")
+            except Exception as e:
+                print(e)
+                message = "Voice conversion failed", e
 
-            result, audio_opt = vc_single(
-                0,
-                input_audio,
-                f0_pitch,
-                None,
-                f0_method,
-                file_index,
-                index_rate,
-                crepe_hop_length,
-                output_file,
-            )
+            # Update the output label with the result
             # output_label.configure(text=result + "\n saved at" + output_file)
-            print(os.path.join(output_file))
-            if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
-                print(output_file)
 
-                run_button.configure(state="enabled")
-                message = result
-                result_state.configure(text_color="green")
-                last_output_file.configure(text=output_file)
-                output_audio_frame.pack(padx=10, pady=10)
-            else:
-                message = result
-                result_state.configure(text_color="red")
-
-        except Exception as e:
-            print(e)
-            message = "Voice conversion failed", e
-
-        # Update the output label with the result
-        # output_label.configure(text=result + "\n saved at" + output_file)
+            run_button.configure(state="enabled")
+        else:
+            message = "Please select a model and input audio file"
+            run_button.configure(state="enabled")
+            result_state.configure(text_color="red")
 
         run_button.configure(state="enabled")
-    else:
-        message = "Please select a model and input audio file"
-        run_button.configure(state="enabled")
-        result_state.configure(text_color="red")
+        message = result
+        result_state.configure(text_color="green")
+        last_output_file.configure(text=output_files[i])
+        output_audio_frame.pack(padx=10, pady=10)
 
-    loading_progress.stop()
-    loading_frame.pack_forget()
-    result_state.pack(padx=10, pady=10, side="top")
-    result_state.configure(text=message)
+        loading_progress.stop()
+        loading_frame.pack_forget()
+        result_state.pack(padx=10, pady=10, side="top")
+        result_state.configure(text=message)
 
 
-def browse_file():
-    # filedialog.askdirectory()
-    filepath = filedialog.askopenfilename(filetypes=[("Audio Files", ["*.mp3", "*.wav"])])
-    filepath = os.path.normpath(filepath)  # Normalize file path
+def browse_files():
+    filepaths = filedialog.askopenfilenames(filetypes=[("Audio Files", ["*.mp3", "*.wav"])])
+    filepaths = [os.path.normpath(filepath) for filepath in filepaths]  # Normalize file path
     input_audio_entry.delete(0, tk.END)
-    input_audio_entry.insert(0, filepath)
+    input_audio_entry.insert(0, "___comma___".join(filepaths))
 
 
 def start_processing():
@@ -638,8 +648,8 @@ model_list = ctk.CTkOptionMenu(
 )
 
 # initializing audio file input widget
-input_audio_label = ctk.CTkLabel(inputpath_frame, text="Input audio file:")
-browse_button = ctk.CTkButton(inputpath_frame, text="Browse", command=browse_file)
+input_audio_label = ctk.CTkLabel(inputpath_frame, text="Input audio file(s)")
+browse_button = ctk.CTkButton(inputpath_frame, text="Browse", command=browse_files)
 input_audio_entry = ctk.CTkEntry(inputpath_frame)
 
 #  initializing pitch widget
