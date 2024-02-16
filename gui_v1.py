@@ -1,4 +1,5 @@
-import os, sys
+import os
+import sys
 
 if sys.platform == "darwin":
     os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
@@ -15,7 +16,8 @@ class Harvest(multiprocessing.Process):
         self.opt_q = opt_q
 
     def run(self):
-        import numpy as np, pyworld
+        import numpy as np
+        import pyworld
 
         while 1:
             idx, x, res_f0, n_cpu, ts = self.inp_q.get()
@@ -32,19 +34,24 @@ class Harvest(multiprocessing.Process):
 
 
 if __name__ == "__main__":
-    from multiprocessing import Queue
-    from queue import Empty
-    import numpy as np
-    import multiprocessing
-    import traceback, re
     import json
+    import multiprocessing
+    import re
+    import threading
+    import time
+    import traceback
+    from multiprocessing import Queue, cpu_count
+    from queue import Empty
+
+    import librosa
+    import noisereduce as nr
+    import numpy as np
     import PySimpleGUI as sg
     import sounddevice as sd
-    import noisereduce as nr
-    from multiprocessing import cpu_count
-    import librosa, torch, time, threading
+    import torch
     import torch.nn.functional as F
     import torchaudio.transforms as tat
+
     from i18n import I18nAuto
 
     i18n = I18nAuto()
@@ -96,7 +103,7 @@ if __name__ == "__main__":
                     data["harvest"] = data["f0method"] == "harvest"
                     data["crepe"] = data["f0method"] == "crepe"
                     data["rmvpe"] = data["f0method"] == "rmvpe"
-            except:
+            except Exception as e:
                 with open("values1.json", "w") as j:
                     data = {
                         "pth_path": " ",
@@ -120,7 +127,7 @@ if __name__ == "__main__":
             layout = [
                 [
                     sg.Frame(
-                        title=i18n("加载模型"),
+                        title=i18n("Load model"),
                         layout=[
                             [
                                 sg.Input(
@@ -128,7 +135,7 @@ if __name__ == "__main__":
                                     key="pth_path",
                                 ),
                                 sg.FileBrowse(
-                                    i18n("选择.pth文件"),
+                                    i18n("Select .pth file"),
                                     initial_folder=os.path.join(os.getcwd(), "weights"),
                                     file_types=((". pth"),),
                                 ),
@@ -139,7 +146,7 @@ if __name__ == "__main__":
                                     key="index_path",
                                 ),
                                 sg.FileBrowse(
-                                    i18n("选择.index文件"),
+                                    i18n("Select .index file"),
                                     initial_folder=os.path.join(os.getcwd(), "logs"),
                                     file_types=((". index"),),
                                 ),
@@ -151,7 +158,7 @@ if __name__ == "__main__":
                     sg.Frame(
                         layout=[
                             [
-                                sg.Text(i18n("输入设备")),
+                                sg.Text(i18n("Input device")),
                                 sg.Combo(
                                     input_devices,
                                     key="sg_input_device",
@@ -159,14 +166,18 @@ if __name__ == "__main__":
                                 ),
                             ],
                             [
-                                sg.Text(i18n("输出设备")),
+                                sg.Text(i18n("Output device")),
                                 sg.Combo(
                                     output_devices,
                                     key="sg_output_device",
                                     default_value=data.get("sg_output_device", ""),
                                 ),
                             ],
-                            [sg.Button(i18n("重载设备列表"), key="reload_devices")],
+                            [
+                                sg.Button(
+                                    i18n("Reload device list"), key="reload_devices"
+                                )
+                            ],
                         ],
                         title=i18n("音频设备(请使用同种类驱动)"),
                     )
@@ -175,7 +186,7 @@ if __name__ == "__main__":
                     sg.Frame(
                         layout=[
                             [
-                                sg.Text(i18n("响应阈值")),
+                                sg.Text(i18n("Response threshold")),
                                 sg.Slider(
                                     range=(-60, 0),
                                     key="threhold",
@@ -185,7 +196,7 @@ if __name__ == "__main__":
                                 ),
                             ],
                             [
-                                sg.Text(i18n("音调设置")),
+                                sg.Text(i18n("Pitch setting")),
                                 sg.Slider(
                                     range=(-24, 24),
                                     key="pitch",
@@ -205,7 +216,7 @@ if __name__ == "__main__":
                                 ),
                             ],
                             [
-                                sg.Text(i18n("音高算法")),
+                                sg.Text(i18n("Pitch algorithm")),
                                 sg.Radio(
                                     "pm",
                                     "f0method",
@@ -237,7 +248,7 @@ if __name__ == "__main__":
                     sg.Frame(
                         layout=[
                             [
-                                sg.Text(i18n("采样长度")),
+                                sg.Text(i18n("Sampling length")),
                                 sg.Slider(
                                     range=(0.12, 2.4),
                                     key="block_time",
@@ -247,7 +258,7 @@ if __name__ == "__main__":
                                 ),
                             ],
                             [
-                                sg.Text(i18n("harvest进程数")),
+                                sg.Text(i18n("Number of harvest processes")),
                                 sg.Slider(
                                     range=(1, n_cpu),
                                     key="n_cpu",
@@ -259,7 +270,7 @@ if __name__ == "__main__":
                                 ),
                             ],
                             [
-                                sg.Text(i18n("淡入淡出长度")),
+                                sg.Text(i18n("Crossfade length")),
                                 sg.Slider(
                                     range=(0.01, 0.15),
                                     key="crossfade_length",
@@ -269,7 +280,7 @@ if __name__ == "__main__":
                                 ),
                             ],
                             [
-                                sg.Text(i18n("额外推理时长")),
+                                sg.Text(i18n("Extra inference time")),
                                 sg.Slider(
                                     range=(0.05, 3.00),
                                     key="extra_time",
@@ -279,7 +290,9 @@ if __name__ == "__main__":
                                 ),
                             ],
                             [
-                                sg.Checkbox(i18n("输入降噪"), key="I_noise_reduce"),
+                                sg.Checkbox(
+                                    i18n("Input noise reduction"), key="I_noise_reduce"
+                                ),
                                 sg.Checkbox(i18n("输出降噪"), key="O_noise_reduce"),
                             ],
                         ],
@@ -469,7 +482,7 @@ if __name__ == "__main__":
 
         def soundinput(self):
             """
-            接受音频输入
+            Receive audio input
             """
             channels = 1 if sys.platform == "darwin" else 2
             with sd.Stream(
@@ -488,7 +501,7 @@ if __name__ == "__main__":
             self, indata: np.ndarray, outdata: np.ndarray, frames, times, status
         ):
             """
-            音频处理
+            Audio processing
             """
             start_time = time.perf_counter()
             indata = librosa.to_mono(indata.T)
@@ -603,7 +616,7 @@ if __name__ == "__main__":
             print("infer time:" + str(total_time))
 
         def get_devices(self, update: bool = True):
-            """获取设备列表"""
+            """Get device list"""
             if update:
                 sd._terminate()
                 sd._initialize()
@@ -640,7 +653,7 @@ if __name__ == "__main__":
             )
 
         def set_devices(self, input_device, output_device):
-            """设置输出设备"""
+            """设置Output device"""
             (
                 input_devices,
                 output_devices,

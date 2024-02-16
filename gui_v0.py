@@ -1,22 +1,31 @@
-import os, sys, traceback, re
-
 import json
+import os
+import re
+import sys
+import traceback
 
 now_dir = os.getcwd()
 sys.path.append(now_dir)
 from config import Config
 
 Config = Config()
-import PySimpleGUI as sg
-import sounddevice as sd
+import threading
+import time
+
+import faiss
+import librosa
 import noisereduce as nr
 import numpy as np
-from fairseq import checkpoint_utils
-import librosa, torch, pyworld, faiss, time, threading
+import PySimpleGUI as sg
+import pyworld
+import scipy.signal as signal
+import sounddevice as sd
+import torch
 import torch.nn.functional as F
 import torchaudio.transforms as tat
-import scipy.signal as signal
+from fairseq import checkpoint_utils
 
+from i18n import I18nAuto
 
 # import matplotlib.pyplot as plt
 from lib.infer_pack.models import (
@@ -25,7 +34,6 @@ from lib.infer_pack.models import (
     SynthesizerTrnMs768NSFsid,
     SynthesizerTrnMs768NSFsid_nono,
 )
-from i18n import I18nAuto
 
 i18n = I18nAuto()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -278,7 +286,7 @@ class GUI:
         layout = [
             [
                 sg.Frame(
-                    title=i18n("加载模型"),
+                    title=i18n("Load model"),
                     layout=[
                         [
                             sg.Input(
@@ -298,7 +306,7 @@ class GUI:
                                 key="pth_path",
                             ),
                             sg.FileBrowse(
-                                i18n("选择.pth文件"),
+                                i18n("Select .pth file"),
                                 initial_folder=os.path.join(os.getcwd(), "weights"),
                                 file_types=(("weight files", "*.pth"),),
                             ),
@@ -309,7 +317,7 @@ class GUI:
                                 key="index_path",
                             ),
                             sg.FileBrowse(
-                                i18n("选择.index文件"),
+                                i18n("Select .index file"),
                                 initial_folder=os.path.join(os.getcwd(), "logs"),
                                 file_types=(("index files", "*.index"),),
                             ),
@@ -333,7 +341,7 @@ class GUI:
                 sg.Frame(
                     layout=[
                         [
-                            sg.Text(i18n("输入设备")),
+                            sg.Text(i18n("Input device")),
                             sg.Combo(
                                 input_devices,
                                 key="sg_input_device",
@@ -341,7 +349,7 @@ class GUI:
                             ),
                         ],
                         [
-                            sg.Text(i18n("输出设备")),
+                            sg.Text(i18n("Output device")),
                             sg.Combo(
                                 output_devices,
                                 key="sg_output_device",
@@ -356,7 +364,7 @@ class GUI:
                 sg.Frame(
                     layout=[
                         [
-                            sg.Text(i18n("响应阈值")),
+                            sg.Text(i18n("Response threshold")),
                             sg.Slider(
                                 range=(-60, 0),
                                 key="threhold",
@@ -366,7 +374,7 @@ class GUI:
                             ),
                         ],
                         [
-                            sg.Text(i18n("音调设置")),
+                            sg.Text(i18n("Pitch setting")),
                             sg.Slider(
                                 range=(-24, 24),
                                 key="pitch",
@@ -391,7 +399,7 @@ class GUI:
                 sg.Frame(
                     layout=[
                         [
-                            sg.Text(i18n("采样长度")),
+                            sg.Text(i18n("Sampling length")),
                             sg.Slider(
                                 range=(0.1, 3.0),
                                 key="block_time",
@@ -401,7 +409,7 @@ class GUI:
                             ),
                         ],
                         [
-                            sg.Text(i18n("淡入淡出长度")),
+                            sg.Text(i18n("Crossfade length")),
                             sg.Slider(
                                 range=(0.01, 0.15),
                                 key="crossfade_length",
@@ -411,7 +419,7 @@ class GUI:
                             ),
                         ],
                         [
-                            sg.Text(i18n("额外推理时长")),
+                            sg.Text(i18n("Extra inference time")),
                             sg.Slider(
                                 range=(0.05, 3.00),
                                 key="extra_time",
@@ -421,7 +429,9 @@ class GUI:
                             ),
                         ],
                         [
-                            sg.Checkbox(i18n("输入降噪"), key="I_noise_reduce"),
+                            sg.Checkbox(
+                                i18n("Input noise reduction"), key="I_noise_reduce"
+                            ),
                             sg.Checkbox(i18n("输出降噪"), key="O_noise_reduce"),
                         ],
                     ],
@@ -544,7 +554,7 @@ class GUI:
 
     def soundinput(self):
         """
-        接受音频输入
+        Receive audio input
         """
         with sd.Stream(
             channels=2,
@@ -562,7 +572,7 @@ class GUI:
         self, indata: np.ndarray, outdata: np.ndarray, frames, times, status
     ):
         """
-        音频处理
+        Audio processing
         """
         start_time = time.perf_counter()
         indata = librosa.to_mono(indata.T)
@@ -641,7 +651,7 @@ class GUI:
         print("infer time:" + str(total_time))
 
     def get_devices(self, update: bool = True):
-        """获取设备列表"""
+        """Get device list"""
         if update:
             sd._terminate()
             sd._initialize()
@@ -678,7 +688,7 @@ class GUI:
         )
 
     def set_devices(self, input_device, output_device):
-        """设置输出设备"""
+        """设置Output device"""
         (
             input_devices,
             output_devices,
