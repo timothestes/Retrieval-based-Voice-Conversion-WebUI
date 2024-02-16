@@ -3,7 +3,9 @@ __pycache__
 /TEMP
 *.pyd
 hubert_base.pt
+rmvpe.pt
 /logs
 .venv
 opt/*
 rvc/*
+input/*
