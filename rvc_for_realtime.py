@@ -1,20 +1,31 @@
-import faiss, torch, traceback, parselmouth, numpy as np, torchcrepe, torch.nn as nn, pyworld
+import os
+import sys
+import traceback
+from time import time as ttime
+
+import faiss
+import numpy as np
+import parselmouth
+import pyworld
+import scipy.signal as signal
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torchcrepe
 from fairseq import checkpoint_utils
+
 from lib.infer_pack.models import (
     SynthesizerTrnMs256NSFsid,
     SynthesizerTrnMs256NSFsid_nono,
     SynthesizerTrnMs768NSFsid,
     SynthesizerTrnMs768NSFsid_nono,
 )
-import os, sys
-from time import time as ttime
-import torch.nn.functional as F
-import scipy.signal as signal
 
 now_dir = os.getcwd()
 sys.path.append(now_dir)
-from config import Config
 from multiprocessing import Manager as M
+
+from config import Config
 
 mm = M()
 config = Config()
@@ -58,7 +69,10 @@ class RVC:
                 hubert_model = hubert_model.float()
             hubert_model.eval()
             self.model = hubert_model
+            print(f"path: {pth_path}")
             cpt = torch.load(pth_path, map_location="cpu")
+            if not cpt:
+                print("no cpt")
             self.tgt_sr = cpt["config"][-1]
             cpt["config"][-3] = cpt["weight"]["emb_g.weight"].shape[0]
             self.if_f0 = cpt.get("f0", 1)
@@ -85,7 +99,8 @@ class RVC:
             else:
                 self.net_g = self.net_g.float()
             self.is_half = config.is_half
-        except:
+        except Exception as e:
+            print("got an error loading the RVC: ")
             print(traceback.format_exc())
 
     def get_f0_post(self, f0):
@@ -167,9 +182,9 @@ class RVC:
                 f0 = f0[2:-3]
             else:
                 f0 = f0[2:-1]
-            f0bak[
-                part_length * idx // 160 : part_length * idx // 160 + f0.shape[0]
-            ] = f0
+            f0bak[part_length * idx // 160 : part_length * idx // 160 + f0.shape[0]] = (
+                f0
+            )
         f0bak = signal.medfilt(f0bak, 3)
         f0bak *= pow(2, f0_up_key / 12)
         return self.get_f0_post(f0bak)

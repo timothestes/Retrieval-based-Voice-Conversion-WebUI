@@ -1,13 +1,1 @@
-{
-    "pth_path": " ",
-    "index_path": " ",
-    "sg_input_device": "idk",
-    "sg_output_device": "idk",
-    "threhold": "-45",
-    "pitch": "0",
-    "index_rate": "0",
-    "block_time": "1",
-    "crossfade_length": "0.04",
-    "extra_time": "1",
-    "f0method": "rmvpe"
-}
+{"pth_path": "path.pth", "index_path": "index.index", "sg_input_device": "Tim\u2019s iPhone Microphone (Core Audio)", "sg_output_device": "Scarlett 2i2 USB (Core Audio)", "threhold": -60.0, "pitch": 0.0, "index_rate": 0.0, "block_time": 0.99, "crossfade_length": 0.04, "extra_time": 1.0, "n_cpu": 8.0, "f0method": "rmvpe"}

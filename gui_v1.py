@@ -481,21 +481,22 @@ if __name__ == "__main__":
             thread_vc.start()
 
         def soundinput(self):
-            """
-            Receive audio input
-            """
-            channels = 1 if sys.platform == "darwin" else 2
-            with sd.Stream(
-                channels=channels,
-                callback=self.audio_callback,
-                blocksize=self.block_frame,
-                samplerate=self.config.samplerate,
-                dtype="float32",
-            ):
-                while self.flag_vc:
-                    time.sleep(self.config.block_time)
-                    print("Audio block passed.")
-            print("ENDing VC")
+            try:
+                channels = 1 if sys.platform == "darwin" else 2
+                with sd.Stream(
+                    channels=channels,
+                    callback=self.audio_callback,
+                    blocksize=self.block_frame,
+                    samplerate=self.config.samplerate,
+                    dtype="float32",
+                ):
+                    print("Stream started")  # Confirm stream start
+                    while self.flag_vc:
+                        time.sleep(self.config.block_time)
+                        print("Audio block passed.")
+                print("Ending VC")
+            except Exception as e:
+                print(f"Exception in soundinput: {e}")
 
         def audio_callback(
             self, indata: np.ndarray, outdata: np.ndarray, frames, times, status
@@ -505,9 +506,10 @@ if __name__ == "__main__":
             """
             start_time = time.perf_counter()
             indata = librosa.to_mono(indata.T)
+            print("doing audio callback.")
             if self.config.I_noise_reduce:
                 indata[:] = nr.reduce_noise(y=indata, sr=self.config.samplerate)
-            """noise gate"""
+            # Noise gate
             frame_length = 2048
             hop_length = 1024
             rms = librosa.feature.rms(
@@ -521,11 +523,9 @@ if __name__ == "__main__":
                     if db_threhold[i]:
                         indata[i * hop_length : (i + 1) * hop_length] = 0
             self.input_wav[:] = np.append(self.input_wav[self.block_frame :], indata)
-            # infer
+            # Infer
             inp = torch.from_numpy(self.input_wav).to(device)
-            ##0
             res1 = self.resampler(inp)
-            ###55%
             rate1 = self.block_frame / (
                 self.extra_frame
                 + self.crossfade_frame
@@ -553,7 +553,7 @@ if __name__ == "__main__":
             infer_wav = self.output_wav_cache[
                 -self.crossfade_frame - self.sola_search_frame - self.block_frame :
             ]
-            # SOLA algorithm from https://github.com/yxlllc/DDSP-SVC
+            # SOLA algorithm adjustment
             cor_nom = F.conv1d(
                 infer_wav[None, None, : self.crossfade_frame + self.sola_search_frame],
                 self.sola_buffer[None, None, :],
@@ -568,16 +568,19 @@ if __name__ == "__main__":
                 )
                 + 1e-8
             )
-            if sys.platform == "darwin":
-                _, sola_offset = torch.max(cor_nom[0, 0] / cor_den[0, 0])
+            cor_ratio = cor_nom[0, 0] / cor_den[0, 0]
+            if cor_ratio.ndim > 0:
+                _, sola_offset = torch.max(cor_ratio, dim=0)
                 sola_offset = sola_offset.item()
             else:
-                sola_offset = torch.argmax(cor_nom[0, 0] / cor_den[0, 0])
-            print("sola offset: " + str(int(sola_offset)))
+                sola_offset = (
+                    0  # Fallback or default value if tensor is not as expected
+                )
+            print("sola offset:", sola_offset)
             self.output_wav[:] = infer_wav[sola_offset : sola_offset + self.block_frame]
             self.output_wav[: self.crossfade_frame] *= self.fade_in_window
             self.output_wav[: self.crossfade_frame] += self.sola_buffer[:]
-            # crossfade
+            # Crossfade
             if sola_offset < self.sola_search_frame:
                 self.sola_buffer[:] = (
                     infer_wav[
@@ -613,7 +616,7 @@ if __name__ == "__main__":
                     outdata[:] = self.output_wav[:].repeat(2, 1).t().cpu().numpy()
             total_time = time.perf_counter() - start_time
             self.window["infer_time"].update(int(total_time * 1000))
-            print("infer time:" + str(total_time))
+            print("infer time:", total_time)
 
         def get_devices(self, update: bool = True):
             """Get device list"""
